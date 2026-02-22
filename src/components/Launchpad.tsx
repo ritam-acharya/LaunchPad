@@ -131,14 +131,14 @@ export default function Launchpad() {
                             <p className="text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight ">Decimals</p>
                             <input 
                             ref={decimalsRef}
-                            onChange={(e) => setDecimals(parseInt(e.target.value))} value={9}
+                            onChange={(e) => setDecimals(parseInt(e.target.value))}
                             className="w-[85%] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="number" placeholder="9 decimals" min={0} max={20} />
                         </div>
                         <div className="h-auto w-full md:w-[40%] flex flex-col items-start justify-start gap-3 ">
                             <p className="text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight ">Initial supply</p>
                             <input 
                             ref={supplyRef}
-                            onChange={(e) => setInitialSupply(parseInt(e.target.value))} value={100}
+                            onChange={(e) => setInitialSupply(parseInt(e.target.value))} 
                             className="w-[85%] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="text" placeholder="100" />
                         </div>
                     </div>
