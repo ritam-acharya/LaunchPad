@@ -2,6 +2,9 @@ import { BsImages } from "react-icons/bs";
 import { CiFileOn } from "react-icons/ci";
 import UploadPreview from "./UploadPreview";
 import { useRef, useState } from "react";
+import axios from "axios";
+import useLaunchPad from "../hooks/useLaunchpad";
+import { Keypair, PublicKey } from "@solana/web3.js";
 
 export default function Launchpad() {
     
@@ -9,10 +12,93 @@ export default function Launchpad() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [coinName, setCoinName] = useState<string | null>(null);
     const [ticker, setTicker] = useState<string | null>(null);
-    const [ , setDescription] = useState<string | null>(null);
+    const [decimals, setDecimals] = useState<number>(9);
+    const [initialSupply, setInitialSupply] = useState<number>(100);
+    const [ description, setDescription] = useState<string | null>(null);
     const coinRef = useRef<HTMLInputElement>(null);
     const tickerRef = useRef<HTMLInputElement>(null);
     const descriptionRef = useRef<HTMLTextAreaElement>(null);
+    const decimalsRef = useRef<HTMLInputElement>(null);
+    const supplyRef = useRef<HTMLInputElement>(null);
+    const [loading, setLoading] = useState(false);
+
+    const { createMintWithMetadata, createAta, mintTo } = useLaunchPad();
+
+    const uploadToCloudinary = async (file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", "Launchpad");
+
+        try {
+            const response = await fetch(
+            "https://api.cloudinary.com/v1_1/dw4rzrrxw/auto/upload",
+            {
+                method: "POST",
+                body: formData,
+            }
+            );
+
+            const data = await response.json();
+
+            console.log("Cloudinary response:", data);
+
+            return data.secure_url; // 🔥 This is your cloud URL
+        } catch (error) {
+            console.error("Upload failed:", error);
+            return null;
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!file || !coinName || !ticker || !decimals || !initialSupply) return;
+        else {
+            setLoading(true);
+            const cloudUrl = await uploadToCloudinary(file);
+
+            if (cloudUrl) {
+                console.log("Uploaded URL:", cloudUrl);
+                const reqData = {
+                    name: coinName,
+                    symbol: ticker,
+                    imageUrl: cloudUrl,
+                    description
+                };
+                // store in state or send to backend
+                const data = await axios.post("https://launchpad-be-rvmn.onrender.com/api/v1/upload", reqData );
+                console.log(data.data);
+                if (data.data.success) {
+                    console.log("-----------inside function-----------");
+                    const mint = Keypair.generate();
+                    await createMintWithMetadata({
+                        mint,
+                        name: coinName,
+                        symbol: ticker,
+                        uri: `https://launchpad-be-rvmn.onrender.com/api/v1/${data.data.message._id.toString()}`,
+                        description: description as string,
+                        decimals
+                    });
+                    const ataAddress: PublicKey = await createAta({mint});
+                    await mintTo({mint, ataAddress, initialSupply, decimals});
+                    alert("Coin created successfully!");
+                    coinRef.current!.value = "";
+                    tickerRef.current!.value = "";
+                    descriptionRef.current!.value = "";
+                    decimalsRef.current!.value = "9";
+                    supplyRef.current!.value = "100";
+                    setFile(null);
+                    setPreviewUrl(null);
+                    setCoinName(null);
+                    setTicker(null);
+                    setDecimals(9);
+                    setInitialSupply(100);
+                }else {
+                    console.log("error happen");
+                }
+            }
+            setLoading(false);
+        }
+        
+    };
 
 
     return <div className="min-h-screen w-full bg-[#111113] h-auto px-4 md:px-8 lg:px-12 py-6 md:py-10 lg:py-14 ">
@@ -36,7 +122,24 @@ export default function Launchpad() {
                             <input 
                             ref={tickerRef}
                             onChange={(e) => setTicker(e.target.value)}
-                            className="w-[85%] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="text" placeholder="Add a coin ticker (e.g. DOGE)" />
+                            className="w-[85%] uppercase h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="text" placeholder="Add a coin ticker (e.g. DOGE)" />
+                        </div>
+                    </div>
+
+                    <div className="h-auto w-full flex flex-col md:flex-row items-center justify-between gap-4 mb-3 mt-4">
+                        <div className="h-auto w-full md:w-[40%] flex flex-col items-start justify-start gap-3 ">
+                            <p className="text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight ">Decimals</p>
+                            <input 
+                            ref={decimalsRef}
+                            onChange={(e) => setDecimals(parseInt(e.target.value))} value={9}
+                            className="w-[85%] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="number" placeholder="9 decimals" min={0} max={20} />
+                        </div>
+                        <div className="h-auto w-full md:w-[40%] flex flex-col items-start justify-start gap-3 ">
+                            <p className="text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight ">Initial supply</p>
+                            <input 
+                            ref={supplyRef}
+                            onChange={(e) => setInitialSupply(parseInt(e.target.value))} value={100}
+                            className="w-[85%] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="text" placeholder="100" />
                         </div>
                     </div>
 
@@ -45,7 +148,7 @@ export default function Launchpad() {
                         <textarea 
                         ref={descriptionRef}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-[95%] max-h-[200px] min-h-[120px] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " placeholder="Write a short de" />
+                        className="w-[95%] max-h-[200px] min-h-[120px] h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " placeholder="Write a short description" />
                     </div>
 
                     <div className="my-3 w-full h-auto flex flex-col ">
@@ -129,8 +232,10 @@ export default function Launchpad() {
                         </div>
                         <div className="h-full w-[40%] mt-6 flex flex-col items-start justify-start gap-2  ">
                             <h2 className="text-white font-semibold text-[16px] md:text-[18px] lg:text-[20px] leading-[16px] md:leading-[18px] lg:leading-[20px] tracking-tight h-auto w-full overflow-hidden  ">{coinName ? coinName : "Coin name"}</h2>
-                            <p className="text-[#444] text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight h-auto w-full overflow-hidden ">{ticker ? ticker : "Ticker"}</p>
-                            <p className="text-[12px] md:text-sm leading-[12px] md:leading-[14px] tracking-tight ">Now</p>
+                            <p className=" text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight h-auto w-full overflow-hidden ">{ticker ? ticker : "Ticker"}</p>
+                            <p className="text-[#444] text-[12px] md:text-[14px] leading-[12px] md:leading-[14px] tracking-tight ">Decimals:  {decimals}</p>
+                            <p className="text-[10px] md:text-[12px] leading-[10px] md:leading-[12px] tracking-tight ">Initial supply:  {initialSupply}</p>
+                            <p className="text-[10px] md:text-[12px] leading-[10px] md:leading-[12px] tracking-tight ">Now</p>
                         </div>
                     </div>
                 }
@@ -138,6 +243,12 @@ export default function Launchpad() {
 
                 
             </div>
+        </div>
+
+        <div 
+        onClick={handleUpload}
+        className="bg-[#77D89A] text-black px-4 py-3 rounded-lg w-[230px] h-auto flex items-center justify-center cursor-pointer tracking-tight font-normal text-[14px] md:text-[16px] lg:text-[17px] leading-[14px] md:leading-[16px] lg:leading-[17px] ">
+            {loading ? "Loading..." : "Create coin"}
         </div>
     </div>
 }
