@@ -1,10 +1,10 @@
 import { BsImages } from "react-icons/bs";
 import { CiFileOn } from "react-icons/ci";
 import UploadPreview from "./UploadPreview";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import useLaunchPad from "../hooks/useLaunchpad";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 
 export default function Launchpad() {
     
@@ -22,7 +22,14 @@ export default function Launchpad() {
     const supplyRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
 
-    const { createMintWithMetadata, createAta, mintTo } = useLaunchPad();
+    
+
+    const { createTokenWithMetadata } = useLaunchPad();
+
+    useEffect(() => {
+        decimalsRef.current!.value = "9";
+        supplyRef.current!.value = "100";
+    }, []);
 
     const uploadToCloudinary = async (file: File) => {
         const formData = new FormData();
@@ -69,16 +76,15 @@ export default function Launchpad() {
                 if (data.data.success) {
                     console.log("-----------inside function-----------");
                     const mint = Keypair.generate();
-                    await createMintWithMetadata({
+                    await createTokenWithMetadata({
                         mint,
                         name: coinName,
                         symbol: ticker,
                         uri: `https://launchpad-be-rvmn.onrender.com/api/v1/${data.data.message._id.toString()}`,
                         description: description as string,
-                        decimals
+                        decimals,
+                        initialSupply
                     });
-                    const ataAddress: PublicKey = await createAta({mint});
-                    await mintTo({mint, ataAddress, initialSupply, decimals});
                     alert("Coin created successfully!");
                     coinRef.current!.value = "";
                     tickerRef.current!.value = "";
@@ -121,7 +127,7 @@ export default function Launchpad() {
                             <p className="text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight ">Ticker</p>
                             <input 
                             ref={tickerRef}
-                            onChange={(e) => setTicker(e.target.value)}
+                            onChange={(e) => setTicker(e.target.value.toUpperCase())}
                             className="w-[85%] uppercase h-auto bg-transparent outline-none border-[0.5px] border-gray-800 rounded-lg px-3 focus:border-[2px] focus:border-white py-2 placeholder:text-[#9CA3AF] " type="text" placeholder="Add a coin ticker (e.g. DOGE)" />
                         </div>
                     </div>
@@ -247,7 +253,7 @@ export default function Launchpad() {
 
         <div 
         onClick={handleUpload}
-        className="bg-[#77D89A] text-black px-4 py-3 rounded-lg w-[230px] h-auto flex items-center justify-center cursor-pointer tracking-tight font-normal text-[14px] md:text-[16px] lg:text-[17px] leading-[14px] md:leading-[16px] lg:leading-[17px] ">
+        className="bg-[#77D89A] text-black px-4 py-3 rounded-lg w-[250px] h-auto flex items-center justify-center cursor-pointer tracking-tight font-normal text-[14px] md:text-[16px] lg:text-[17px] leading-[14px] md:leading-[16px] lg:leading-[17px] ">
             {loading ? "Loading..." : "Create coin"}
         </div>
     </div>

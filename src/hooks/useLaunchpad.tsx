@@ -1,4 +1,4 @@
-import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, createInitializeMetadataPointerInstruction, createInitializeMintInstruction, createMintToInstruction, ExtensionType, getAssociatedTokenAddressSync, getMintLen, LENGTH_SIZE, TOKEN_2022_PROGRAM_ID, TYPE_SIZE } from "@solana/spl-token";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, AuthorityType, createAssociatedTokenAccountInstruction, createInitializeMetadataPointerInstruction, createInitializeMintInstruction, createMintToInstruction, createSetAuthorityInstruction, ExtensionType, getAssociatedTokenAddressSync, getMintLen, LENGTH_SIZE, TOKEN_2022_PROGRAM_ID, TYPE_SIZE } from "@solana/spl-token";
 import { createInitializeInstruction, pack, type TokenMetadata } from "@solana/spl-token-metadata";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
@@ -10,7 +10,7 @@ export default function useLaunchPad() {
     const payer = useWallet().publicKey as PublicKey;
     const sendTransaction = useWallet().sendTransaction;
 
-    async function createMintWithMetadata({mint, name, symbol, uri, description, decimals}: {mint: Keypair, name: string, symbol: string, uri: string, description: string, decimals: number}) {
+    async function createTokenWithMetadata({mint, name, symbol, uri, description, decimals, initialSupply}: {mint: Keypair, name: string, symbol: string, uri: string, description: string, decimals: number, initialSupply: number}) {
         const block = await connection.getLatestBlockhash();
         console.log("Creating mint account with metadata...");
 
@@ -82,19 +82,6 @@ export default function useLaunchPad() {
             initializeMetadataExtensionIns
         );
 
-        transaction.partialSign(mint);
-
-        const signature = await sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature, 'confirmed');
-
-        console.log('Mint address : ', mint.publicKey.toBase58());
-        console.log("Signature : ", signature);
-    }
-
-    async function createAta({mint}: {mint: Keypair}) {
-        const block = await connection.getLatestBlockhash();
-        console.log("inside ata function");
-
         const ataAddress = getAssociatedTokenAddressSync(
             mint.publicKey,
             payer,
@@ -112,22 +99,7 @@ export default function useLaunchPad() {
             ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
-        const transaction = new Transaction({
-            lastValidBlockHeight: block.lastValidBlockHeight,
-            blockhash: block.blockhash,
-            feePayer: payer
-        }).add(createAtaIns);
-
-        const signature = await sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature, "confirmed");
-
-        console.log('ATA address : ', ataAddress.toBase58());
-        return ataAddress;
-    }
-
-    async function mintTo({mint, ataAddress, initialSupply, decimals}: {mint: Keypair, ataAddress: PublicKey, initialSupply: number, decimals: number}) {
-        const block = await connection.getLatestBlockhash();
-        console.log("inside mint to function");
+        transaction.add(createAtaIns);
 
         const mintToIns = createMintToInstruction(
             mint.publicKey,
@@ -138,22 +110,32 @@ export default function useLaunchPad() {
             TOKEN_2022_PROGRAM_ID
         );
 
-        const transaction = new Transaction({
-            lastValidBlockHeight: block.lastValidBlockHeight,
-            blockhash: block.blockhash,
-            feePayer: payer
-        }).add(mintToIns);
+        transaction.add(mintToIns);
+
+        const revokeMintAuthorityIns = createSetAuthorityInstruction(
+            mint.publicKey,
+            payer,
+            AuthorityType.MintTokens,
+            null,
+            [],
+            TOKEN_2022_PROGRAM_ID
+        );
+
+        transaction.add(revokeMintAuthorityIns);
+
+        transaction.partialSign(mint);
 
         const signature = await sendTransaction(transaction, connection);
-        await connection.confirmTransaction(signature, "confirmed");
+        await connection.confirmTransaction(signature, 'confirmed');
 
+        console.log('Mint address : ', mint.publicKey.toBase58());
+        console.log("Signature : ", signature);
+        console.log('ATA address : ', ataAddress.toBase58());
         console.log('MINT successfull...');
     }
 
     return {
-        createMintWithMetadata,
-        createAta,
-        mintTo
+        createTokenWithMetadata
     }
 }
 
