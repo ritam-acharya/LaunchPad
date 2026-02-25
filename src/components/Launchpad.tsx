@@ -49,7 +49,7 @@ export default function Launchpad() {
 
             console.log("Cloudinary response:", data);
 
-            return data.secure_url; // 🔥 This is your cloud URL
+            return data.secure_url; 
         } catch (error) {
             console.error("Upload failed:", error);
             return null;
@@ -107,7 +107,7 @@ export default function Launchpad() {
     };
 
 
-    return <div className="min-h-screen w-full bg-[#111113] h-auto px-4 md:px-8 lg:px-12 py-6 md:py-10 lg:py-14 ">
+    return <div className="min-h-screen w-full text-white bg-neutral-950 h-auto px-4 md:px-8 lg:px-12 pt-24 pb-10 ">
         <h1 className="text-[24px] md:text-[28px] lg:text-[32px] font-medium px-2 ">Create new coin</h1>
         <h4 className="text-[16px] md:text-[18px] lg:text-[22px] font-medium mb-2 mt-6 px-2 ">Coin details</h4>
         <p className="text-[14px] md:text-[16px] lg:text-[18px] leading-[14px] md:leading-[16px] lg:leading-[18px] tracking-tight font-medium px-2 text-[#949AA4] ">Choose carefully, these can't be changed once the coin is created</p>
