@@ -38,7 +38,7 @@ export default function useCreatePool() {
         }
 
         const minSqrtPriceX64 = priceToSqrtPriceX64(minPrice);
-        const maxSqrtPriceX64 = priceToSqrtPriceX64(maxPrice); cpAmm.getSqrt
+        const maxSqrtPriceX64 = priceToSqrtPriceX64(maxPrice); 
 
         // // Fetch mint accounts for your Token 2022 tokens
         const mintA = await getMint(connection, tokenAMint, 'confirmed', TOKEN_2022_PROGRAM_ID);
