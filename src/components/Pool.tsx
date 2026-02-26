@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { IoLockClosedOutline } from "react-icons/io5";
 import useCreatePool from "../hooks/useCreatePool";
 import { useWallet } from "@solana/wallet-adapter-react";
+import axios from "axios";
 
 type mintInfo = {
     imageurl: string,
@@ -51,6 +52,11 @@ export default function Pool() {
     }, []);
 
     async function initializePool() {
+        if(!publicKey) {
+            alert("Please connect your wallet.");
+            return;
+        }
+
         if(!baseMint) {
             baseMintRef.current?.focus();
             return;
@@ -59,10 +65,77 @@ export default function Pool() {
             quoteMintRef.current?.focus();
             return;
         }
+        if(baseAmount <= 0){
+            alert("Base amount must not be 0");
+            return;
+        }
+
+        if(quoteAmount <= 0){
+            alert("Quote amount must not be 0");
+            return;
+        }
         setLoading(true);
-        const poolAddress = await createPool(baseMint!, quoteMint!, baseAmount, quoteAmount,initialPrice, minPrice, maxPrice, baseDecimals, quoteDecimals);
-        alert(poolAddress);
-        setLoading(false);
+        try{
+            const result = await createPool(baseMint!, quoteMint!, baseAmount, quoteAmount,initialPrice, minPrice, maxPrice, baseDecimals, quoteDecimals);
+            if (!result) {
+                alert("Failed to create pool. Please try again.");
+                setLoading(false);
+                return;
+            }
+            const { poolAddress, baseVal, quoteVal } = result;
+            const reqBody = {
+                baseMint,
+                quoteMint,
+                baseTicker: baseMintInfo?.ticker,
+                quoteTicker: quoteMintInfo?.ticker,
+                baseImg: baseMintInfo?.imageurl,
+                quoteImg: quoteMintInfo?.imageurl,
+                baseDecimals,
+                quoteDecimals,
+                baseAmount: baseVal,
+                quoteAmount: quoteVal,
+                poolAddress
+            };
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/createPool`, reqBody);
+
+            if(res.data.success) {
+                alert("Pool created Successfully...");
+                setLoading(false);
+                setBaseMint(null);
+                setQuoteMint(null);
+                setBaseMintInfo(null);
+                setQuoteMintInfo(null);
+                baseMintRef.current!.value="";
+                quoteMintRef.current!.value="";
+                baseAmountRef.current!.value = "";
+                minPriceRef.current!.value = "";
+                maxPriceRef.current!.value = "";
+            }else {
+                alert(res.data.message || "Failed to create pool. Please check the min max price range.");
+                setLoading(false);
+                setBaseMint(null);
+                setQuoteMint(null);
+                setBaseMintInfo(null);
+                setQuoteMintInfo(null);
+                baseMintRef.current!.value="";
+                quoteMintRef.current!.value="";
+                baseAmountRef.current!.value = "";
+                minPriceRef.current!.value = "";
+                maxPriceRef.current!.value = "";
+            }
+        }catch {
+            alert("Can't create pool now. Please try again later.");
+            setLoading(false);
+            setBaseMint(null);
+            setQuoteMint(null);
+            setBaseMintInfo(null);
+            setQuoteMintInfo(null);
+            baseMintRef.current!.value="";
+            quoteMintRef.current!.value="";
+            baseAmountRef.current!.value = "";
+            minPriceRef.current!.value = "";
+            maxPriceRef.current!.value = "";
+        }
     }
 
 
@@ -111,13 +184,13 @@ export default function Pool() {
                 </div>
 
                 <div className="flex flex-col items-start justify-start gap-3 my-6 h-auto w-full ">
-                    <p className="text-[15px] md:text-[17px] lg:text-[19px] leading-[15px] md:leading-[17px] lg:leading-[19px] tracking-tight  ">Base token Amount (Min) </p>
+                    <p className="text-[15px] md:text-[17px] lg:text-[19px] leading-[15px] md:leading-[17px] lg:leading-[19px] tracking-tight  ">Base token Amount </p>
                     <input 
                     onChange={(e) => {
                         setBaseAmount(parseFloat(e.target.value));
                         setInitialPrice(parseFloat(( quoteAmount / parseFloat(e.target.value)).toFixed(9)));
                     }}
-                    ref={baseAmountRef} type="text" placeholder="1000" className="w-full lg:w-[85%] bg-[#141526] px-4 py-3 rounded-md outline-none focus:outline-white text-white placeholder:text-[#666775]  "  />
+                    ref={baseAmountRef} type="text" placeholder="1000" min={1} className="w-full lg:w-[85%] bg-[#141526] px-4 py-3 rounded-md outline-none focus:outline-white text-white placeholder:text-[#666775]  "  />
                 </div>
 
                 <div className="flex flex-col items-start justify-start gap-3 my-6 h-auto w-full ">
@@ -160,13 +233,13 @@ export default function Pool() {
                 </div>
 
                 <div className="flex flex-col items-start justify-start gap-3 my-6 h-auto w-full ">
-                    <p className="text-[15px] md:text-[17px] lg:text-[19px] leading-[15px] md:leading-[17px] lg:leading-[19px] tracking-tight  ">Quote token Amount (Min)</p>
+                    <p className="text-[15px] md:text-[17px] lg:text-[19px] leading-[15px] md:leading-[17px] lg:leading-[19px] tracking-tight  ">Quote token Amount </p>
                     <input 
                     onChange={(e) => {
                         setQuoteAmount(parseFloat(e.target.value));
                         setInitialPrice(parseFloat(( parseFloat(e.target.value) / baseAmount).toFixed(9)));
                     }}
-                    ref={quoteAmountRef} type="text" placeholder="1000"  className="w-full lg:w-[85%] bg-[#141526] px-4 py-3 rounded-md outline-none focus:outline-white text-white placeholder:text-[#666775]  " />
+                    ref={quoteAmountRef} type="text" placeholder="1000" min={1} className="w-full lg:w-[85%] bg-[#141526] px-4 py-3 rounded-md outline-none focus:outline-white text-white placeholder:text-[#666775]  " />
                 </div>
 
                 <div className="h-auto w-full flex flex-col md:flex-row items-start md:items-center justifybetween gap-4  ">

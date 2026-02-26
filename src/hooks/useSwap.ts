@@ -15,7 +15,7 @@ export default function useSwap() {
             
         try{
             new PublicKey(mintStr);
-        }catch(err) {
+        }catch {
             return false;
         }
         const accountInfo = await connection.getAccountInfo(new PublicKey(mintStr));
@@ -35,11 +35,6 @@ export default function useSwap() {
         const mintB = await getMint(connection, toMint, 'confirmed', TOKEN_2022_PROGRAM_ID);
 
         const epochInfo = await connection.getEpochInfo();
-        // // console.log("Pool Info:", poolInfo);
-        // const vaultA = await connection.getTokenAccountBalance(poolInfo.tokenAVault);
-        // const vaultB = await connection.getTokenAccountBalance(poolInfo.tokenBVault);
-        // console.log("Vault A Balance:", vaultA.value.uiAmountString);
-        // console.log("Vault B Balance:", vaultB.value.uiAmountString);
         const poolState = await cpAmm.fetchPoolState(poolAddress);
         const currentSlot = await connection.getSlot();
         const currentTime = Math.floor(Date.now() / 1000);
@@ -64,9 +59,6 @@ export default function useSwap() {
             tokenBDecimal: mintB.decimals,
             hasReferral: false,
         });
-
-        console.log("Expected out:", quote.swapOutAmount.toString());
-        console.log("Minimum out:", quote.minSwapOutAmount.toString());
 
         const transaction = await cpAmm.swap({
             payer: publicKey,
@@ -87,12 +79,18 @@ export default function useSwap() {
         transaction.recentBlockhash = blockHash.blockhash;
         transaction.feePayer = publicKey;
         const signedtrans = await sendTransaction(transaction, connection);
-        const sign = await connection.confirmTransaction(signedtrans, 'confirmed');
-        console.log(sign);
-        return sign;
-        // const sign = await sendAndConfirmTransaction(connection, swapIx, [payer]);
-        // console.log("Swap Transaction Signature:", sign);
+        await connection.confirmTransaction(signedtrans, 'confirmed');
 
+        const vault1 = poolInfo.tokenAVault.toBase58();
+        const vault2 = poolInfo.tokenBVault.toBase58();
+        const bal1 = await connection.getTokenAccountBalance(new PublicKey(vault1));
+        const bal2 = await connection.getTokenAccountBalance(new PublicKey(vault2));
+        const baseVal = bal1.value.uiAmountString as string;
+        const quoteVal = bal2.value.uiAmountString as string;
+        return {
+            baseVal,
+            quoteVal
+        };
     }
 
     async function getValue(poolAddress: PublicKey, fromMint: PublicKey, toMint: PublicKey, fromAmount: number) {
@@ -104,11 +102,6 @@ export default function useSwap() {
         const mintB = await getMint(connection, toMint, 'confirmed', TOKEN_2022_PROGRAM_ID);
 
         const epochInfo = await connection.getEpochInfo();
-        // // console.log("Pool Info:", poolInfo);
-        // const vaultA = await connection.getTokenAccountBalance(poolInfo.tokenAVault);
-        // const vaultB = await connection.getTokenAccountBalance(poolInfo.tokenBVault);
-        // console.log("Vault A Balance:", vaultA.value.uiAmountString);
-        // console.log("Vault B Balance:", vaultB.value.uiAmountString);
         const poolState = await cpAmm.fetchPoolState(poolAddress);
         const currentSlot = await connection.getSlot();
         const currentTime = Math.floor(Date.now() / 1000);
@@ -133,9 +126,6 @@ export default function useSwap() {
             tokenBDecimal: mintB.decimals,
             hasReferral: false,
         });
-
-        console.log("Expected out:", quote.swapOutAmount.toString());
-        console.log("Minimum out:", quote.minSwapOutAmount.toString());
 
         return parseFloat((parseInt(quote.swapOutAmount.toString()) / Math.pow(10, mintB.decimals)).toFixed(mintB.decimals));
     }
@@ -158,7 +148,6 @@ export default function useSwap() {
             );
     
             if (!metadataExtension) {
-                console.log("No TokenMetadata extension found.");
                 return;
             }
     
@@ -166,24 +155,10 @@ export default function useSwap() {
             const metadata = unpack(
                 metadataExtension
             ) as TokenMetadata;
-    
-            console.log("\n--- Token Metadata ---");
-            console.log(`Name: ${metadata.name}`);
-            console.log(`Symbol: ${metadata.symbol}`);
-            console.log(`URI: ${metadata.uri}`);
-            console.log(
-                `Update Authority: ${metadata.updateAuthority?.toBase58()}`
-            );
-            console.log("------------------------\n");
-    
             try {
                 const response = await fetch(metadata.uri);
                 const json = await response.json();
-    
-                console.log("--- External JSON Data ---");
-                console.log(`Description: ${json.description}`);
-                console.log(`Image URL: ${json.imageUrl}`);
-                console.log("--------------------------");
+                
                 return {
                     imageUrl: json.imageUrl,
                     ticker: metadata.symbol,

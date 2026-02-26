@@ -12,7 +12,6 @@ export default function useLaunchPad() {
 
     async function createTokenWithMetadata({mint, name, symbol, uri, description, decimals, initialSupply}: {mint: Keypair, name: string, symbol: string, uri: string, description: string, decimals: number, initialSupply: number}) {
         const block = await connection.getLatestBlockhash();
-        console.log("Creating mint account with metadata...");
 
         const metadata: TokenMetadata = {
             mint: mint.publicKey,
@@ -127,11 +126,6 @@ export default function useLaunchPad() {
 
         const signature = await sendTransaction(transaction, connection);
         await connection.confirmTransaction(signature, 'confirmed');
-
-        console.log('Mint address : ', mint.publicKey.toBase58());
-        console.log("Signature : ", signature);
-        console.log('ATA address : ', ataAddress.toBase58());
-        console.log('MINT successfull...');
     }
 
     return {

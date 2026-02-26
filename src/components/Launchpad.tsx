@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import useLaunchPad from "../hooks/useLaunchpad";
 import { Keypair } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 export default function Launchpad() {
     
@@ -21,7 +22,7 @@ export default function Launchpad() {
     const decimalsRef = useRef<HTMLInputElement>(null);
     const supplyRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
-
+    const { publicKey } = useWallet();
     
 
     const { createTokenWithMetadata } = useLaunchPad();
@@ -37,50 +38,70 @@ export default function Launchpad() {
         formData.append("upload_preset", "Launchpad");
 
         try {
-            const response = await fetch(
-            "https://api.cloudinary.com/v1_1/dw4rzrrxw/auto/upload",
-            {
-                method: "POST",
-                body: formData,
-            }
-            );
 
-            const data = await response.json();
+            const response = await axios.post(import.meta.env.VITE_CLOUD_URL, formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data"
+                }
+            });
+            const data = response.data;
 
-            console.log("Cloudinary response:", data);
-
-            return data.secure_url; 
-        } catch (error) {
-            console.error("Upload failed:", error);
-            return null;
+            return {
+                success: true,
+                data: data.secure_url
+            }; 
+        } catch {
+            return {
+                success: false,
+                data: null
+            };
         }
     };
 
     const handleUpload = async () => {
-        if (!file || !coinName || !ticker || !decimals || !initialSupply) return;
+        if(!publicKey) {
+            alert("Please Connect your wallet first.");
+            return;
+        }
+        if (!file || !coinName || !ticker || !decimals || !initialSupply) {
+            alert("Incomplete information. Please provide all the details.");
+            return;
+        }
         else {
             setLoading(true);
-            const cloudUrl = await uploadToCloudinary(file);
-
-            if (cloudUrl) {
-                console.log("Uploaded URL:", cloudUrl);
-                const reqData = {
-                    name: coinName,
-                    symbol: ticker,
-                    imageUrl: cloudUrl,
-                    description
-                };
+            const res = await uploadToCloudinary(file);
+            if(!res.success){
+                alert("Failed to upload media. Please try again.");
+                setLoading(false);
+                coinRef.current!.value = "";
+                tickerRef.current!.value = "";
+                descriptionRef.current!.value = "";
+                decimalsRef.current!.value = "9";
+                supplyRef.current!.value = "100";
+                setFile(null);
+                setPreviewUrl(null);
+                setCoinName(null);
+                setTicker(null);
+                setDecimals(9);
+                setInitialSupply(100);
+            }
+            const cloudUrl = res.data;
+            const reqData = {
+                name: coinName,
+                symbol: ticker,
+                imageUrl: cloudUrl,
+                description
+            };
+            try{
                 // store in state or send to backend
-                const data = await axios.post("https://launchpad-be-rvmn.onrender.com/api/v1/upload", reqData );
-                console.log(data.data);
+                const data = await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/upload`, reqData );
                 if (data.data.success) {
-                    console.log("-----------inside function-----------");
                     const mint = Keypair.generate();
                     await createTokenWithMetadata({
                         mint,
                         name: coinName,
                         symbol: ticker,
-                        uri: `https://launchpad-be-rvmn.onrender.com/api/v1/${data.data.message._id.toString()}`,
+                        uri: `${import.meta.env.VITE_API_URL}/api/v1/${data.data.message._id.toString()}`,
                         description: description as string,
                         decimals,
                         initialSupply
@@ -97,13 +118,16 @@ export default function Launchpad() {
                     setTicker(null);
                     setDecimals(9);
                     setInitialSupply(100);
+                    setLoading(false);
                 }else {
-                    console.log("error happen");
+                    alert(data.data.message);
+                    setLoading(false);
                 }
+            }catch {
+                alert("Server is down. Please try after sometime.");
+                setLoading(false);
             }
-            setLoading(false);
         }
-        
     };
 
 
@@ -253,7 +277,7 @@ export default function Launchpad() {
 
         <div 
         onClick={handleUpload}
-        className="bg-[#77D89A] text-black px-4 py-3 rounded-lg w-[250px] h-auto flex items-center justify-center cursor-pointer tracking-tight font-normal text-[14px] md:text-[16px] lg:text-[17px] leading-[14px] md:leading-[16px] lg:leading-[17px] ">
+        className="bg-[#77D89A] text-black px-4 py-3 rounded-lg w-full md:w-[250px] h-auto flex items-center justify-center cursor-pointer tracking-tight font-normal text-[14px] md:text-[16px] lg:text-[17px] leading-[14px] md:leading-[16px] lg:leading-[17px] ">
             {loading ? "Loading..." : "Create coin"}
         </div>
     </div>

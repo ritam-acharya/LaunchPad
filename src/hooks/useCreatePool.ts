@@ -79,29 +79,36 @@ export default function useCreatePool() {
             tokenBProgram: TOKEN_2022_PROGRAM_ID,
             isLockLiquidity: true
         });
-
-        console.log("Transaction is : ", transaction);
-        console.log("Position NFT Public Key:", positionNft.publicKey.toBase58());
         transaction.recentBlockhash = blockhash.blockhash;
         transaction.feePayer = publicKey!;
         transaction.partialSign(positionNft);
         
-        const sim = await connection.simulateTransaction(transaction);
-        console.log(sim.value.logs);
+        await connection.simulateTransaction(transaction);
         const txn = await sendTransaction(transaction, connection);
-        const sign = await connection.confirmTransaction(txn, 'confirmed');
-        console.log("Transaction Signature: ", sign);
+        await connection.confirmTransaction(txn, 'confirmed');
 
         const poolAddress = derivePoolAddress(config, tokenAMint, tokenBMint);
-        console.log("Pool Address:", poolAddress.toBase58());
-        return poolAddress;
+
+        const poolInfo = await cpAmm.fetchPoolState(poolAddress);
+        const vault1 = poolInfo.tokenAVault.toBase58();
+        const vault2 = poolInfo.tokenBVault.toBase58();
+        const bal1 = await connection.getTokenAccountBalance(new PublicKey(vault1));
+        const bal2 = await connection.getTokenAccountBalance(new PublicKey(vault2));
+        const baseVal = bal1.value.uiAmountString as string;
+        const quoteVal = bal2.value.uiAmountString as string;
+
+        return {
+            poolAddress,
+            baseVal,
+            quoteVal
+        };
     }
 
     async function isValidMint(mintStr: string) {
         
         try{
             new PublicKey(mintStr);
-        }catch(err) {
+        }catch {
             return false;
         }
         const accountInfo = await connection.getAccountInfo(new PublicKey(mintStr));
@@ -131,7 +138,6 @@ export default function useCreatePool() {
         );
 
         if (!metadataExtension) {
-            console.log("No TokenMetadata extension found.");
             return;
         }
 
@@ -140,23 +146,10 @@ export default function useCreatePool() {
             metadataExtension
         ) as TokenMetadata;
 
-        console.log("\n--- Token Metadata ---");
-        console.log(`Name: ${metadata.name}`);
-        console.log(`Symbol: ${metadata.symbol}`);
-        console.log(`URI: ${metadata.uri}`);
-        console.log(
-            `Update Authority: ${metadata.updateAuthority?.toBase58()}`
-        );
-        console.log("------------------------\n");
-
         try {
             const response = await fetch(metadata.uri);
             const json = await response.json();
 
-            console.log("--- External JSON Data ---");
-            console.log(`Description: ${json.description}`);
-            console.log(`Image URL: ${json.imageUrl}`);
-            console.log("--------------------------");
             return {
                 imageUrl: json.imageUrl,
                 ticker: metadata.symbol
